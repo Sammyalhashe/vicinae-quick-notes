@@ -13,6 +13,12 @@
       "title": "Quick Note",
       "description": "Write a markdown or org note",
       "mode": "view"
+    },
+    {
+      "name": "notes",
+      "title": "Notes",
+      "description": "Browse notes and manage TODOs",
+      "mode": "view"
     }
   ],
   "scripts": {
