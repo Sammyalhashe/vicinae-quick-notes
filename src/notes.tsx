@@ -22,7 +22,7 @@ import {
 } from "./note";
 import QuickNote from "./quick-note";
 
-type StateFilter = "ALL" | "TODO" | "DONE" | "NONE";
+type StateFilter = "ALL" | "TODO" | "DONE" | "NONE" | "ALL_NOT_DONE";
 type DateField = "scheduled" | "deadline";
 
 const dateValue = (value: unknown): string | undefined => {
@@ -139,7 +139,7 @@ function accessories(note: NoteFile): List.Item.Accessory[] {
 
 export default function Notes() {
   const [notes, setNotes] = useState<NoteFile[]>([]);
-  const [filter, setFilter] = useState<StateFilter>("ALL");
+  const [filter, setFilter] = useState<StateFilter>("ALL_NOT_DONE");
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
@@ -185,7 +185,7 @@ export default function Notes() {
     [reload],
   );
 
-  const visible = filter === "ALL" ? notes : notes.filter((note) => note.metadata.state === filter);
+  const visible = filter === "ALL" ? notes : filter === "ALL_NOT_DONE" ? notes.filter(note => note.metadata.state !== "DONE") : notes.filter((note) => note.metadata.state === filter);
   return (
     <List
       isLoading={loading}
