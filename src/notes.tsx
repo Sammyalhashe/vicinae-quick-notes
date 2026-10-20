@@ -200,6 +200,7 @@ export default function Notes() {
           <List.Dropdown.Item title="TODO" value="TODO" />
           <List.Dropdown.Item title="DONE" value="DONE" />
           <List.Dropdown.Item title="None" value="NONE" />
+          <List.Dropdown.Item title="Not Done" value="ALL_NOT_DONE" />
         </List.Dropdown>
       }
     >
