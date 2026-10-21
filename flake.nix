@@ -29,11 +29,30 @@
         (pkgsFor system).callPackage ./nix/package.nix {
           inherit (vicinae.lib.${system}) mkVicinaeExtension;
         };
+      cliFor =
+        system:
+        let
+          pkgs = pkgsFor system;
+          source = pkgs.lib.fileset.toSource {
+            root = ./.;
+            fileset = pkgs.lib.fileset.unions [
+              ./src/cli.ts
+              ./src/note.ts
+            ];
+          };
+        in
+        pkgs.writeShellApplication {
+          name = "quick-notes";
+          text = ''
+            exec ${pkgs.nodejs_24}/bin/node ${source}/src/cli.ts "$@"
+          '';
+        };
     in
     {
       packages = forAllSystems (system: {
         default = packageFor system;
         quick-note = packageFor system;
+        cli = cliFor system;
       });
 
       checks = forAllSystems (system: {
