@@ -13,6 +13,7 @@ const draft: DraftState = {
   body: "Draft body",
   format: "markdown",
   state: "TODO",
+  priority: "A",
   scheduled: "2026-10-22",
   deadline: null,
   tags: "work, plan",
@@ -36,7 +37,13 @@ test("ignores corrupt draft JSON", () => {
 
 test("compares every draft field with the initial state", () => {
   assert.equal(isDraftStateEqual(draft, { ...draft }), true);
+  assert.equal(isDraftStateEqual({ ...draft, priority: "B" }, draft), false);
   assert.equal(isDraftStateEqual({ ...draft, tags: "personal" }, draft), false);
+});
+
+test("restores legacy drafts without a priority", () => {
+  const { priority: _priority, ...legacyDraft } = draft;
+  assert.deepEqual(parseDraft(JSON.stringify(legacyDraft)), { ...draft, priority: "NONE" });
 });
 
 test("edit draft key changes when the note mtime changes", () => {

@@ -24,6 +24,7 @@ import {
   type Metadata,
   type NoteFile,
   type NoteFormat,
+  type NotePriority,
   type NoteState,
   normalizeTags,
   rewriteNote,
@@ -39,6 +40,8 @@ const isNoteFormat = (value: unknown): value is NoteFormat =>
   value === "markdown" || value === "org";
 const isNoteState = (value: unknown): value is NoteState =>
   value === "NONE" || value === "TODO" || value === "DONE";
+const isNotePriority = (value: unknown): value is NotePriority =>
+  value === "A" || value === "B" || value === "C";
 const dateValue = (value: unknown): string | null => {
   if (!(value instanceof Date)) return null;
   const pad = (part: number) => String(part).padStart(2, "0");
@@ -50,6 +53,7 @@ const initialDraftState = (note: NoteFile | undefined, format: NoteFormat): Draf
   body: note?.body ?? "",
   format,
   state: note?.metadata.state ?? "NONE",
+  priority: note?.metadata.priority ?? "NONE",
   scheduled: note?.metadata.scheduled ?? null,
   deadline: note?.metadata.deadline ?? null,
   tags: note?.metadata.tags.join(", ") ?? "",
@@ -193,6 +197,7 @@ export default function QuickNote({ note, onSaved }: QuickNoteProps = {}) {
   async function save() {
     const metadata: Metadata = {
       state: isNoteState(loadedDraft.state) ? loadedDraft.state : "NONE",
+      priority: isNotePriority(loadedDraft.priority) ? loadedDraft.priority : undefined,
       scheduled: loadedDraft.scheduled ?? undefined,
       deadline: loadedDraft.deadline ?? undefined,
       tags: normalizeTags(loadedDraft.tags),
@@ -307,6 +312,21 @@ export default function QuickNote({ note, onSaved }: QuickNoteProps = {}) {
         <Form.Dropdown.Item title="None" value="NONE" />
         <Form.Dropdown.Item title="TODO" value="TODO" />
         <Form.Dropdown.Item title="DONE" value="DONE" />
+      </Form.Dropdown>
+      <Form.Dropdown
+        id="priority"
+        title="Priority"
+        value={draft.priority}
+        onChange={(priority) =>
+          setDraft((current) =>
+            current && { ...current, priority: priority as NotePriority | "NONE" },
+          )
+        }
+      >
+        <Form.Dropdown.Item title="None" value="NONE" />
+        <Form.Dropdown.Item title="A" value="A" />
+        <Form.Dropdown.Item title="B" value="B" />
+        <Form.Dropdown.Item title="C" value="C" />
       </Form.Dropdown>
       <Form.DatePicker
         id="scheduled"

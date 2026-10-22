@@ -5,6 +5,7 @@ import {
   isDateString,
   type Metadata,
   type NoteFormat,
+  type NotePriority,
   type NoteState,
   scanNotes,
   writeNote,
@@ -13,6 +14,7 @@ import {
 const usage = `Usage:
   node src/cli.ts todos <notesDir>
   node src/cli.ts set-state <notePath> <TODO|DONE|NONE>
+  node src/cli.ts set-priority <notePath> <A|B|C|NONE>
   node src/cli.ts add <notesDir> --title <title> [--format org|markdown] [--state TODO|DONE] [--deadline YYYY-MM-DD]`;
 
 function fail(message?: string): number {
@@ -25,6 +27,10 @@ function isState(value: string | undefined): value is NoteState {
   return value === "TODO" || value === "DONE" || value === "NONE";
 }
 
+function isPriority(value: string | undefined): value is NotePriority | "NONE" {
+  return value === "A" || value === "B" || value === "C" || value === "NONE";
+}
+
 async function todos(args: string[]): Promise<number> {
   if (args.length !== 1) return fail();
   const notes = (await scanNotes(args[0]))
@@ -33,12 +39,26 @@ async function todos(args: string[]): Promise<number> {
       path: note.path,
       title: note.title,
       state: note.metadata.state,
+      priority: note.metadata.priority,
       scheduled: note.metadata.scheduled,
       deadline: note.metadata.deadline,
       tags: note.metadata.tags,
       mtimeMs: note.mtimeMs,
     }));
   console.log(JSON.stringify(notes));
+  return 0;
+}
+
+async function setPriority(args: string[]): Promise<number> {
+  if (args.length !== 2 || !isPriority(args[1])) return fail();
+  const notePath = args[0];
+  const stats = await stat(notePath);
+  const priority = args[1] === "NONE" ? undefined : args[1];
+  const result = await editNote(notePath, { priority }, stats.mtimeMs);
+  if (result.conflict) {
+    console.error(`Conflict while updating ${notePath}`);
+    return 2;
+  }
   return 0;
 }
 
@@ -96,6 +116,7 @@ async function main(args: string[]): Promise<number> {
   const [command, ...commandArgs] = args;
   if (command === "todos") return todos(commandArgs);
   if (command === "set-state") return setState(commandArgs);
+  if (command === "set-priority") return setPriority(commandArgs);
   if (command === "add") return add(commandArgs);
   return fail();
 }

@@ -44,6 +44,7 @@ test("todos prints TODO and DONE notes as JSON", async () => {
         date: new Date(2026, 0, 2),
         metadata: {
           state: "TODO",
+          priority: "A",
           scheduled: "2026-01-03",
           tags: ["sync"],
         },
@@ -73,11 +74,30 @@ test("todos prints TODO and DONE notes as JSON", async () => {
       ],
     );
     assert.deepEqual(output[0].tags, ["sync"]);
+    assert.equal(output[0].priority, "A");
+    assert.equal("priority" in output[1], false);
     assert.equal(output[0].scheduled, "2026-01-03");
     assert.equal("deadline" in output[0], false);
     assert.equal(output[1].deadline, "2026-01-04");
     assert.equal(typeof output[0].mtimeMs, "number");
     assert.equal(output[0].path, path.join(dir, "todo.md"));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("set-priority sets and clears a note priority", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "quick-notes-cli-priority-"));
+  const notePath = path.join(dir, "note.org");
+  try {
+    await writeFile(notePath, "* Change me\n");
+    let result = await runCli(["set-priority", notePath, "C"]);
+    assert.equal(result.code, 0);
+    assert.equal(parseNote("org", await readFile(notePath, "utf8")).metadata.priority, "C");
+
+    result = await runCli(["set-priority", notePath, "NONE"]);
+    assert.equal(result.code, 0);
+    assert.equal(parseNote("org", await readFile(notePath, "utf8")).metadata.priority, undefined);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -136,7 +156,12 @@ test("add creates markdown and org notes with requested metadata", async () => {
 });
 
 test("bad arguments print usage and exit 1", async () => {
-  for (const args of [[], ["unknown"], ["set-state", "note.md", "OPEN"]]) {
+  for (const args of [
+    [],
+    ["unknown"],
+    ["set-state", "note.md", "OPEN"],
+    ["set-priority", "note.md", "D"],
+  ]) {
     const result = await runCli(args);
     assert.equal(result.code, 1);
     assert.match(result.stderr, /Usage:/);

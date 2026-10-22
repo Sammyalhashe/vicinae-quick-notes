@@ -1,10 +1,11 @@
-import type { NoteFormat, NoteState } from "./note";
+import type { NoteFormat, NotePriority, NoteState } from "./note";
 
 export interface DraftState {
   title: string;
   body: string;
   format: NoteFormat;
   state: NoteState;
+  priority: NotePriority | "NONE";
   scheduled: string | null;
   deadline: string | null;
   tags: string;
@@ -35,6 +36,15 @@ export function parseDraft(value: unknown): DraftState | undefined {
     if (draft.state !== "NONE" && draft.state !== "TODO" && draft.state !== "DONE") {
       return undefined;
     }
+    if (
+      draft.priority !== undefined &&
+      draft.priority !== "NONE" &&
+      draft.priority !== "A" &&
+      draft.priority !== "B" &&
+      draft.priority !== "C"
+    ) {
+      return undefined;
+    }
     if (draft.scheduled !== null && typeof draft.scheduled !== "string") return undefined;
     if (draft.deadline !== null && typeof draft.deadline !== "string") return undefined;
     if (typeof draft.tags !== "string") return undefined;
@@ -44,6 +54,7 @@ export function parseDraft(value: unknown): DraftState | undefined {
       body: draft.body,
       format: draft.format,
       state: draft.state,
+      priority: draft.priority ?? "NONE",
       scheduled: draft.scheduled,
       deadline: draft.deadline,
       tags: draft.tags,
@@ -59,6 +70,7 @@ export function isDraftStateEqual(state: DraftState, initialState: DraftState): 
     state.body === initialState.body &&
     state.format === initialState.format &&
     state.state === initialState.state &&
+    state.priority === initialState.priority &&
     state.scheduled === initialState.scheduled &&
     state.deadline === initialState.deadline &&
     state.tags === initialState.tags

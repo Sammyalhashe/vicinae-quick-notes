@@ -4,9 +4,11 @@ import path from "node:path";
 
 export type NoteFormat = "markdown" | "org";
 export type NoteState = "NONE" | "TODO" | "DONE";
+export type NotePriority = "A" | "B" | "C";
 
 export interface Metadata {
   state: NoteState;
+  priority?: NotePriority;
   scheduled?: string;
   deadline?: string;
   tags: string[];
@@ -14,6 +16,7 @@ export interface Metadata {
 
 export interface MetadataPatch {
   state?: NoteState;
+  priority?: NotePriority;
   scheduled?: string;
   deadline?: string;
   tags?: string[];
@@ -125,6 +128,7 @@ function renderMarkdown(input: RenderInput, metadata: Metadata): string {
   const lines = ["---"];
   if (input.title) lines.push(`title: ${input.title}`);
   if (metadata.state !== "NONE") lines.push(`status: ${metadata.state.toLowerCase()}`);
+  if (metadata.priority) lines.push(`priority: ${metadata.priority}`);
   if (metadata.scheduled) lines.push(`scheduled: ${metadata.scheduled}`);
   if (metadata.deadline) lines.push(`due: ${metadata.deadline}`);
   if (metadata.tags.length) lines.push(`tags: [${metadata.tags.join(", ")}]`);
@@ -140,12 +144,13 @@ function renderOrg(input: RenderInput, metadata: Metadata): string {
   const createdDate = dateParts(created);
   const createdTime = `${pad(created.getHours())}:${pad(created.getMinutes())}`;
   const state = metadata.state === "NONE" ? "" : `${metadata.state} `;
+  const priority = metadata.priority ? `[#${metadata.priority}] ` : "";
   const lines = [
     `#+title: ${input.title}`,
     `#+date: [${createdDate} ${weekdays[created.getDay()]} ${createdTime}]`,
   ];
   if (metadata.tags.length) lines.push(`#+filetags: :${metadata.tags.join(":")}:`);
-  lines.push(`* ${state}${input.title}`);
+  lines.push(`* ${state}${priority}${input.title}`);
   const planning: string[] = [];
   if (metadata.scheduled) planning.push(`SCHEDULED: <${orgDate(metadata.scheduled)}>`);
   if (metadata.deadline) planning.push(`DEADLINE: <${orgDate(metadata.deadline)}>`);
@@ -184,6 +189,8 @@ function parseMarkdown(content: string): ParsedNote {
         if (key === "title") title = value;
         else if (key === "status" && /^(todo|done)$/i.test(value)) {
           metadata.state = value.toUpperCase() as NoteState;
+        } else if (key === "priority" && /^[ABC]$/i.test(value)) {
+          metadata.priority = value.toUpperCase() as NotePriority;
         } else if (key === "scheduled" && isDateString(value)) metadata.scheduled = value;
         else if (key === "due" && isDateString(value)) metadata.deadline = value;
         else if (key === "tags" && /^\[.*\]$/.test(value)) {
@@ -243,10 +250,13 @@ function parseOrg(content: string): ParsedNote {
     index += 1;
   }
 
-  const heading = /^\*\s+(?:(TODO|DONE)\s+)?(.*?)\s*$/.exec(lines[index] ?? "");
+  const heading = /^\*\s+(?:(TODO|DONE)\s+)?(?:\[#([ABC])\]\s+)?(.*?)\s*$/.exec(
+    lines[index] ?? "",
+  );
   if (heading) {
     metadata.state = (heading[1] as NoteState | undefined) ?? "NONE";
-    if (!title) title = heading[2];
+    if (heading[2]) metadata.priority = heading[2] as NotePriority;
+    if (!title) title = heading[3];
     index += 1;
     const planning = lines[index] ?? "";
     const scheduled = /(?:^|\s)SCHEDULED:\s*<(\d{4}-\d{2}-\d{2})\s+\S+>/.exec(planning);
@@ -369,6 +379,7 @@ export async function editNote(
   const has = (key: keyof MetadataPatch) =>
     Object.prototype.hasOwnProperty.call(patch, key);
   if (has("state")) metadata.state = patch.state ?? "NONE";
+  if (has("priority")) metadata.priority = patch.priority;
   if (has("scheduled")) metadata.scheduled = patch.scheduled;
   if (has("deadline")) metadata.deadline = patch.deadline;
   if (has("tags")) metadata.tags = normalizeTags(patch.tags ?? []);
@@ -436,6 +447,10 @@ export function sortNotes<T extends Pick<NoteFile, "metadata" | "mtimeMs" | "pat
     const rightTodo = right.metadata.state === "TODO";
     if (leftTodo !== rightTodo) return leftTodo ? -1 : 1;
     if (leftTodo) {
+      const priorityOrder = { A: 0, B: 1, C: 2 } as const;
+      const leftPriority = left.metadata.priority ? priorityOrder[left.metadata.priority] : 3;
+      const rightPriority = right.metadata.priority ? priorityOrder[right.metadata.priority] : 3;
+      if (leftPriority !== rightPriority) return leftPriority - rightPriority;
       const leftDate = left.metadata.scheduled ?? left.metadata.deadline;
       const rightDate = right.metadata.scheduled ?? right.metadata.deadline;
       if (Boolean(leftDate) !== Boolean(rightDate)) return leftDate ? -1 : 1;

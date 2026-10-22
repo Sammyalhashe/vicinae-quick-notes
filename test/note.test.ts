@@ -28,6 +28,7 @@ const date = new Date(2026, 0, 2, 3, 4, 5);
 const cases: Array<[string, Metadata]> = [
   ["none", { state: "NONE", tags: [] }],
   ["state only", { state: "TODO", tags: [] }],
+  ["priority only", { state: "NONE", priority: "B", tags: [] }],
   [
     "dates only",
     { state: "NONE", scheduled: "2026-01-05", deadline: "2026-01-09", tags: [] },
@@ -37,6 +38,7 @@ const cases: Array<[string, Metadata]> = [
     "all",
     {
       state: "DONE",
+      priority: "A",
       scheduled: "2026-01-05",
       deadline: "2026-01-09",
       tags: ["alpha", "team@home"],
@@ -71,6 +73,7 @@ test("renders exact Org heading, planning, tags, and English weekday syntax", ()
       date,
       metadata: {
         state: "TODO",
+        priority: "A",
         scheduled: "2026-01-05",
         deadline: "2026-01-09",
         tags: ["alpha", "beta"],
@@ -79,9 +82,22 @@ test("renders exact Org heading, planning, tags, and English weekday syntax", ()
     "#+title: Named note\n" +
       "#+date: [2026-01-02 Fri 03:04]\n" +
       "#+filetags: :alpha:beta:\n" +
-      "* TODO Named note\n" +
+      "* TODO [#A] Named note\n" +
       "SCHEDULED: <2026-01-05 Mon> DEADLINE: <2026-01-09 Fri>\n\n" +
       "Body\n",
+  );
+});
+
+test("parses and renders an Org priority without a TODO keyword", () => {
+  const parsed = parseNote(
+    "org",
+    "#+title: Prioritized\n#+date: [2026-01-02 Fri 03:04]\n* [#B] Prioritized\n\nBody\n",
+  );
+  assert.equal(parsed.metadata.state, "NONE");
+  assert.equal(parsed.metadata.priority, "B");
+  assert.equal(
+    render("org", { ...parsed, date, metadata: parsed.metadata }),
+    "#+title: Prioritized\n#+date: [2026-01-02 Fri 03:04]\n* [#B] Prioritized\n\nBody\n",
   );
 });
 
@@ -96,6 +112,21 @@ test("renders exact Markdown schema and omits unset metadata", () => {
     }),
     `---\ntitle: Named note\ncreated: ${date.toISOString()}\n---\n# Named note\n\nBody\n`,
   );
+});
+
+test("renders Markdown priority in front matter", () => {
+  const content = render("markdown", {
+    title: "Prioritized",
+    body: "Body",
+    explicitTitle: true,
+    date,
+    metadata: { state: "TODO", priority: "C", tags: [] },
+  });
+  assert.equal(
+    content,
+    `---\ntitle: Prioritized\nstatus: todo\npriority: C\ncreated: ${date.toISOString()}\n---\n# Prioritized\n\nBody\n`,
+  );
+  assert.equal(parseNote("markdown", content).metadata.priority, "C");
 });
 
 test("parses phase-1 Markdown and Org files", () => {
@@ -254,30 +285,47 @@ test("rewriteNote updates the editable fields and preserves unknown front matter
   }
 });
 
-test("sorts open TODOs by relevant date, undated TODOs last, then others by mtime", () => {
+test("sorts TODOs by priority, then relevant date, with non-TODOs unchanged", () => {
   const fixture = [
-    { path: "done-new", mtimeMs: 90, metadata: { state: "DONE", tags: [] } },
+    {
+      path: "done-new",
+      mtimeMs: 90,
+      metadata: { state: "DONE", priority: "A", tags: [] },
+    },
     { path: "todo-undated", mtimeMs: 100, metadata: { state: "TODO", tags: [] } },
     {
-      path: "todo-deadline",
+      path: "todo-b-late",
       mtimeMs: 1,
-      metadata: { state: "TODO", deadline: "2026-01-03", tags: [] },
+      metadata: { state: "TODO", priority: "B", deadline: "2026-01-03", tags: [] },
     },
     {
-      path: "todo-scheduled",
+      path: "todo-b-early",
       mtimeMs: 2,
       metadata: {
         state: "TODO",
+        priority: "B",
         scheduled: "2026-01-02",
         deadline: "2026-01-01",
         tags: [],
       },
     },
+    {
+      path: "todo-a",
+      mtimeMs: 0,
+      metadata: { state: "TODO", priority: "A", tags: [] },
+    },
+    {
+      path: "todo-c",
+      mtimeMs: 200,
+      metadata: { state: "TODO", priority: "C", tags: [] },
+    },
     { path: "none-old", mtimeMs: 10, metadata: { state: "NONE", tags: [] } },
   ] satisfies Array<{ path: string; mtimeMs: number; metadata: Metadata }>;
   assert.deepEqual(sortNotes(fixture).map((note) => note.path), [
-    "todo-scheduled",
-    "todo-deadline",
+    "todo-a",
+    "todo-b-early",
+    "todo-b-late",
+    "todo-c",
     "todo-undated",
     "done-new",
     "none-old",

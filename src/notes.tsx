@@ -119,6 +119,7 @@ function accessories(note: NoteFile): List.Item.Accessory[] {
   const values: List.Item.Accessory[] = [
     { tag: { value: note.metadata.state, color: stateColor(note) } },
   ];
+  if (note.metadata.priority) values.push({ tag: note.metadata.priority });
   if (note.metadata.scheduled) {
     values.push({
       text: dateFromString(note.metadata.scheduled),
@@ -231,6 +232,22 @@ export default function Notes() {
                 icon={Icon.ArrowClockwise}
                 autoFocus
                 onAction={() => void mutate(note, { state: cycleState(note.metadata.state) })}
+              />
+              <Action
+                title="Set Priority A"
+                onAction={() => void mutate(note, { priority: "A" })}
+              />
+              <Action
+                title="Set Priority B"
+                onAction={() => void mutate(note, { priority: "B" })}
+              />
+              <Action
+                title="Set Priority C"
+                onAction={() => void mutate(note, { priority: "C" })}
+              />
+              <Action
+                title="Set Priority None"
+                onAction={() => void mutate(note, { priority: undefined })}
               />
               <Action.Push
                 title="New Note"
