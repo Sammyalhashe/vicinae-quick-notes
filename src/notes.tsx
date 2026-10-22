@@ -204,6 +204,19 @@ export default function Notes() {
         </List.Dropdown>
       }
     >
+      <List.EmptyView
+        title="No notes"
+        actions={
+          <ActionPanel>
+            <Action.Push
+              title="New Note"
+              icon={Icon.Plus}
+              shortcut={{ modifiers: ["cmd"], key: "n" }}
+              target={<QuickNote onSaved={reload} />}
+            />
+          </ActionPanel>
+        }
+      />
       {visible.map((note) => (
         <List.Item
           key={note.path}
@@ -218,6 +231,12 @@ export default function Notes() {
                 icon={Icon.ArrowClockwise}
                 autoFocus
                 onAction={() => void mutate(note, { state: cycleState(note.metadata.state) })}
+              />
+              <Action.Push
+                title="New Note"
+                icon={Icon.Plus}
+                shortcut={{ modifiers: ["cmd"], key: "n" }}
+                target={<QuickNote onSaved={reload} />}
               />
               <Action.Push
                 title="Set/Clear Scheduled"

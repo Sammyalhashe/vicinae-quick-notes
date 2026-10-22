@@ -232,6 +232,15 @@ export default function QuickNote({ note, onSaved }: QuickNoteProps = {}) {
       });
       await LocalStorage.setItem("format", loadedDraft.format);
       await clearDraft();
+      if (onSaved) {
+        await onSaved();
+        await showToast({
+          style: Toast.Style.Success,
+          title: `Saved ${path.basename(notePath)}`,
+        });
+        pop();
+        return;
+      }
       await showHUD(`Saved ${path.basename(notePath)}`);
       await closeMainWindow();
     } catch (error) {
