@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  chmod,
   mkdtemp,
   readFile,
   rm,
@@ -19,6 +20,7 @@ import {
   parseNote,
   render,
   rewriteNote,
+  scanNotes,
   slugify,
   sortNotes,
   writeNote,
@@ -372,6 +374,24 @@ test("writes concurrent notes atomically without collisions", async () => {
       Array.from({ length: 20 }, (_, index) => `Body ${index}`).sort(),
     );
     assert.ok(parsed.every((note) => note.metadata.state === "TODO"));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("scanNotes skips unreadable notes and reports them", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "quick-note-scan-"));
+  try {
+    await writeFile(path.join(dir, "good.md"), "---\ncreated: 2026-01-02T03:04:05.000Z\n---\nreadable\n");
+    const unreadable = path.join(dir, "offline.md");
+    await writeFile(unreadable, "secret");
+    await chmod(unreadable, 0o000);
+
+    const { notes, skipped } = await scanNotes(dir);
+
+    assert.deepEqual(notes.map((note) => path.basename(note.path)), ["good.md"]);
+    assert.deepEqual(skipped.map((entry) => entry.path), [unreadable]);
+    assert.match(skipped[0].message, /EACCES/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

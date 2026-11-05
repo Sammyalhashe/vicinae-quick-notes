@@ -9,6 +9,7 @@ import {
   Toast,
   useNavigation,
 } from "@vicinae/api";
+import path from "node:path";
 import { useCallback, useEffect, useState } from "react";
 import config from "./config.json";
 import {
@@ -146,7 +147,15 @@ export default function Notes() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      setNotes(await scanNotes(config.notesDir));
+      const { notes: scanned, skipped } = await scanNotes(config.notesDir);
+      setNotes(scanned);
+      if (skipped.length) {
+        await showToast({
+          style: Toast.Style.Failure,
+          title: `Skipped ${skipped.length} unreadable ${skipped.length === 1 ? "note" : "notes"}`,
+          message: skipped.map((entry) => path.basename(entry.path)).join(", "),
+        });
+      }
     } catch (error) {
       await showToast({
         style: Toast.Style.Failure,

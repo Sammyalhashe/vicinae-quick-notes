@@ -55,6 +55,16 @@ export interface NoteFile extends ParsedNote {
   mtimeMs: number;
 }
 
+export interface SkippedNote {
+  path: string;
+  message: string;
+}
+
+export interface ScanResult {
+  notes: NoteFile[];
+  skipped: SkippedNote[];
+}
+
 export interface EditResult {
   conflict: boolean;
 }
@@ -412,31 +422,40 @@ export async function rewriteNote(
   return atomicReplace(notePath, content, expectedMtimeMs);
 }
 
-export async function scanNotes(dir: string): Promise<NoteFile[]> {
+export async function scanNotes(dir: string): Promise<ScanResult> {
   let entries;
   try {
     entries = await fs.readdir(dir, { withFileTypes: true });
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { notes: [], skipped: [] };
     throw error;
   }
-  const notes = await Promise.all(
+  const results = await Promise.all(
     entries
       .filter((entry) => entry.isFile() && /\.(?:md|org)$/i.test(entry.name))
-      .map(async (entry): Promise<NoteFile> => {
+      .map(async (entry): Promise<NoteFile | SkippedNote> => {
         const notePath = path.join(dir, entry.name);
-        const [content, stats] = await Promise.all([
-          fs.readFile(notePath, "utf8"),
-          fs.stat(notePath),
-        ]);
-        return {
-          ...parseNote(formatForPath(notePath), content),
-          path: notePath,
-          mtimeMs: stats.mtimeMs,
-        };
+        try {
+          const [content, stats] = await Promise.all([
+            fs.readFile(notePath, "utf8"),
+            fs.stat(notePath),
+          ]);
+          return {
+            ...parseNote(formatForPath(notePath), content),
+            path: notePath,
+            mtimeMs: stats.mtimeMs,
+          };
+        } catch (error) {
+          return {
+            path: notePath,
+            message: error instanceof Error ? error.message : String(error),
+          };
+        }
       }),
   );
-  return sortNotes(notes);
+  const notes = results.filter((result): result is NoteFile => "mtimeMs" in result);
+  const skipped = results.filter((result): result is SkippedNote => !("mtimeMs" in result));
+  return { notes: sortNotes(notes), skipped };
 }
 
 export function sortNotes<T extends Pick<NoteFile, "metadata" | "mtimeMs" | "path">>(

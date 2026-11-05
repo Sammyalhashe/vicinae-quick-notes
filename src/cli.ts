@@ -33,7 +33,9 @@ function isPriority(value: string | undefined): value is NotePriority | "NONE" {
 
 async function todos(args: string[]): Promise<number> {
   if (args.length !== 1) return fail();
-  const notes = (await scanNotes(args[0]))
+  const { notes: scanned, skipped } = await scanNotes(args[0]);
+  for (const entry of skipped) console.error(`Skipped ${entry.path}: ${entry.message}`);
+  const notes = scanned
     .filter((note) => note.metadata.state !== "NONE")
     .map((note) => ({
       path: note.path,
